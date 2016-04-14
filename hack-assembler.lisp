@@ -26,3 +26,41 @@
   (format stream "111~B~6,'0B~3,'0B~3,'0B" (usea object) (c-bits object)
 	  (dest object) (jump object))
   )
+
+(defun strip-comments (line)
+  (cl-ppcre:regex-replace "//.*$" line (make-string 0))
+  )
+(defun read-assembly-file (path)
+  (with-open-file (asm path)
+    (let ((lines
+	    (iter
+	      (for line in-stream asm using 'read-line)	      
+	      (setf line (strip-comments line))
+	      (multiple-value-bind (success result)
+		  (cl-ppcre:scan-to-strings "^\\s*(\\S.*?)?\\s*$" line)
+		(if success
+		    (setf line (aref result 0)))
+		)
+	      (if (zerop (length line))
+		  (next-iteration))
+	      (collect line)
+	      ))
+	  )
+      lines
+      )
+    )
+  )
+
+(defun assemble (file)
+  (let (
+	(lines (read-assembly-file file))
+	)
+    (iter
+     (for line in lines)
+     (case (char line 0)
+       (#\( (write (subseq line 1 (1- (length line)))))
+       (#\@ (make-instance 'a-instruction :address (parse-integer line :start 1)))
+       )
+     )
+    )
+  )
